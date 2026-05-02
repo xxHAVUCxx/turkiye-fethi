@@ -1,0 +1,62 @@
+{
+  "r@gmail.com": {
+    "email": "r@gmail.com",
+    "password": "123",
+    "username": "OWWYEAAH",
+    "id": "E4M1PJ",
+    "score": 20,
+    "coins": 1250,
+    "color": "#ff3b30",
+    "ownedColors": [
+      "#ff3b30",
+      "#0a84ff",
+      "#34c759",
+      "#ffcc00",
+      "#ff9500",
+      "#af52de",
+      "#ff2d55",
+      "#ffffff"
+    ],
+    "castle": "37.87828_33.07564",
+    "lastMonth": "2026-05",
+    "totalConquered": 0,
+    "monthlyConquered": 0,
+    "totalKills": 0,
+    "monthlyKills": 0
+  },
+  "o@gmail.com": {
+    "email": "o@gmail.com",
+    "password": "123",
+    "username": "xxHAVUCxx",
+    "id": "76JULA",
+    "score": 1120,
+    "coins": 58,
+    "color": "#ffffff",
+    "ownedColors": [
+      "#ff3b30",
+      "#0a84ff",
+      "#34c759",
+      "#ffcc00",
+      "#ff9500",
+      "#af52de",
+      "#ff2d55",
+      "#ffffff",
+      "#1a1a1a",
+      "#b9f2ff",
+      "#ccff00",
+      "#0c0c0c",
+      "#8a2be2"
+    ],
+    "castle": "41.24132_31.78542",
+    "ownedEmojis": [
+      "🏰",
+      "🚩"
+    ],
+    "emoji": "🚩",
+    "lastMonth": "2026-05",
+    "totalConquered": 111,
+    "monthlyConquered": 111,
+    "totalKills": 0,
+    "monthlyKills": 0
+  }
+}

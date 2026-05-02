@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Türkiye Fethi</title>
+    <!-- Modern Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Dynamic Background Elements -->
+    <div class="bg-animation">
+        <div class="glow-blob blob-1"></div>
+        <div class="glow-blob blob-2"></div>
+        <div class="glow-blob blob-3"></div>
+    </div>
+
+    <!-- 1. AUTH SCREEN -->
+    <section id="auth-screen" class="screen active">
+        <div class="glass-card auth-card">
+            <h1 class="game-title">TÜRKİYE <span class="text-red">FETHİ</span></h1>
+            <p class="subtitle">Bölgeleri Ele Geçir, Hükmet!</p>
+            
+            <!-- Login Form -->
+            <div id="login-form-container" class="auth-form-container">
+                <div class="input-group">
+                    <label>E-posta</label>
+                    <input type="email" id="login-email" placeholder="ornek@mail.com">
+                </div>
+                <div class="input-group">
+                    <label>Şifre</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="login-password" placeholder="••••••••">
+                        <button class="toggle-password" data-target="login-password">👁️</button>
+                    </div>
+                </div>
+                <button id="submit-login" class="btn btn-primary mt-3">Giriş Yap</button>
+                <p class="auth-switch">Hesabın yok mu? <a href="#" id="switch-to-register">Kayıt Ol</a></p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form-container" class="auth-form-container" style="display: none;">
+                <div class="input-group">
+                    <label>Kullanıcı Adı</label>
+                    <input type="text" id="register-username" placeholder="Kahraman">
+                </div>
+                <div class="input-group">
+                    <label>E-posta</label>
+                    <input type="email" id="register-email" placeholder="ornek@mail.com">
+                </div>
+                <div class="input-group">
+                    <label>Şifre</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="register-password" placeholder="••••••••">
+                        <button class="toggle-password" data-target="register-password">👁️</button>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Şifre (Tekrar)</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="register-confirm-password" placeholder="••••••••">
+                        <button class="toggle-password" data-target="register-confirm-password">👁️</button>
+                    </div>
+                </div>
+                <button id="submit-register" class="btn btn-primary mt-3">Kayıt Ol</button>
+                <p class="auth-switch">Zaten hesabın var mı? <a href="#" id="switch-to-login">Giriş Yap</a></p>
+            </div>
+
+            <!-- Verification Form -->
+            <div id="verify-form-container" class="auth-form-container" style="display: none;">
+                <p class="verify-msg">E-postanıza 6 haneli bir kod gönderildi. Lütfen kodu aşağıya girin.</p>
+                <div class="input-group">
+                    <label>Doğrulama Kodu</label>
+                    <input type="text" id="verify-code" placeholder="123456" maxlength="6" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+                </div>
+                <button id="submit-verify" class="btn btn-primary mt-3">Doğrula ve Bitir</button>
+                <p class="auth-switch"><a href="#" id="back-to-register">Geri Dön</a></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. LOBBY SCREEN (Hub) -->
+    <section id="lobby-screen" class="screen">
+        <header class="lobby-header glass-card-sm">
+            <div class="header-left">
+                <div class="player-profile">
+                    <div class="avatar"></div>
+                    <div class="player-info">
+                        <div class="player-name" style="display: flex; align-items: center; gap: 5px;">
+                            <span id="player-username">...</span>
+                            <button id="btn-profile" class="btn-icon-sm" title="Profil">👤</button>
+                            <button id="btn-global-lb" class="btn-icon-sm" title="Tüm Zamanlar">🏆</button>
+                        </div>
+                        <div class="player-level">Seviye 1</div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-stats">
+                <div class="stat"><span class="text-accent-blue">⚡</span> <span id="energy-val">10</span>/10 <span id="energy-timer" style="font-size: 0.7rem; color: var(--text-muted); margin-left: 3px;"></span></div>
+                <div class="stat"><span class="text-gold">🪙</span> <span id="coin-val">1250</span></div>
+            </div>
+        </header>
+
+        <div class="hub-content">
+            <!-- STORE TAB -->
+            <div id="tab-store" class="hub-tab">
+                <div class="full-panel glass-card">
+                    <h2 class="panel-title">🛒 MAĞAZA</h2>
+                    <div class="store-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+                        <button class="btn btn-sm btn-outline store-sub-tab active" data-type="colors">Renkler</button>
+                        <button class="btn btn-sm btn-outline store-sub-tab" data-type="emojis">Emojiler</button>
+                    </div>
+                    <div class="store-grid" id="store-grid-container">
+                        <!-- Items will be generated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOBBY TAB -->
+            <div id="tab-lobby" class="hub-tab active">
+                <main class="center-panel">
+                    <div class="start-btn-container">
+                        <button id="btn-start" class="btn-mega">
+                            <span class="pulse-ring"></span>
+                            <span class="btn-text">BAŞLAT</span>
+                        </button>
+                    </div>
+                </main>
+            </div>
+
+            <!-- CLAN TAB -->
+            <div id="tab-clan" class="hub-tab">
+                <div class="full-panel glass-card">
+                    <h2 class="panel-title">🛡️ KLAN</h2>
+                    <div class="clan-content">
+                        <div class="empty-state">
+                            <h3 style="color: var(--text-muted); font-size: 1.5rem; margin-top: 2rem;">Yakında gelecek..</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="bottom-nav glass-card-sm">
+            <button class="nav-btn" data-target="tab-store">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-text">Mağaza</span>
+            </button>
+            <button class="nav-btn active" data-target="tab-lobby">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-text">Lobi</span>
+            </button>
+            <button class="nav-btn" data-target="tab-clan">
+                <span class="nav-icon">🛡️</span>
+                <span class="nav-text">Klan</span>
+            </button>
+        </nav>
+    </section>
+
+    <!-- 3. GAME SCREEN -->
+    <section id="game-screen" class="screen">
+        <div id="map-container"></div>
+        
+        <!-- Game UI Overlays -->
+        <div class="game-ui top-bar-ui">
+            <button id="btn-back-lobby" class="btn btn-sm btn-glass">⬅ Geri Çekil</button>
+            <div class="score-display glass-card-sm">
+                Fethedilen Bölge: <span id="score-counter" class="text-red font-bold">0</span>
+            </div>
+            <div id="coord-display" class="glass-card-sm" style="padding: 0.8rem 1rem; font-size: 0.9rem; font-family: monospace; color: var(--text-muted); min-width: 150px; text-align: center;">
+                Lat: 0.00000 | Lng: 0.00000
+            </div>
+        </div>
+
+        <!-- Leaderboard UI -->
+        <div class="leaderboard-ui glass-card-sm">
+            <div class="lb-title">🏆 LİDERLİK TABLOSU</div>
+            <div id="leaderboard-list" class="lb-list">
+                <!-- Items will be generated by JS -->
+            </div>
+        </div>
+
+        <!-- Chat System -->
+        <div id="game-chat" class="glass-card chat-container">
+            <div class="chat-header">
+                <span>💬 SOHBET</span>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+                <div class="chat-system-msg">Sohbete hoş geldiniz!</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Mesaj yazın..." maxlength="100">
+                <button id="btn-send-chat">🚀</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ADMIN CONSOLE (DEACTIVATED)
+    <div id="admin-console" class="glass-card">
+        <div class="console-header">
+            <span>💻 Yönetim Konsolu</span>
+            <button id="close-console" class="btn-close">X</button>
+        </div>
+        <div id="console-output">
+            <div>Türkiye Fethi v1.0 - Konsola Hoş Geldiniz.</div>
+            <div>Yardım için 'help' yazın. Konsolu gizlemek/açmak için '"' (é) tuşuna basın.</div>
+        </div>
+        <div class="console-input-area">
+            <span>&gt;</span>
+            <input type="text" id="console-input" autocomplete="off" spellcheck="false" placeholder="Komut girin...">
+        </div>
+    </div>
+    -->
+
+    <!-- PROFILE MODAL -->
+    <div id="profile-modal" class="modal-overlay">
+        <div class="glass-card profile-card">
+            <button id="close-profile" class="btn-close-modal">✕</button>
+            <div class="profile-header">
+                <div class="avatar large"></div>
+                <div class="name-edit-wrapper">
+                    <h2 id="profile-name">...</h2>
+                    <button id="btn-edit-name" class="btn-icon-sm">✏️</button>
+                </div>
+                <div id="name-edit-input-group" class="edit-group" style="display: none;">
+                    <input type="text" id="input-new-name" placeholder="Yeni İsim (5-14 karakter)" maxlength="14">
+                    <button id="btn-save-name" class="btn btn-sm btn-primary">Kaydet</button>
+                    <button id="btn-cancel-name" class="btn btn-sm btn-outline">X</button>
+                </div>
+                <p class="profile-rank">Kıdemli Fetihçi</p>
+                <p class="player-id-tag">ID: <span id="player-id-val">#XXXXXX</span></p>
+            </div>
+            <div class="profile-stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Toplam Alan</span>
+                    <span id="stat-total-area" class="stat-value">0 m²</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Düşman Bozgunu</span>
+                    <span id="stat-total-kills" class="stat-value">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Kazanılan Altın</span>
+                    <span id="stat-total-coins" class="stat-value">0 🪙</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MINIGAME MODAL -->
+    <div id="minigame-modal" class="modal-overlay" style="display: none; z-index: 10001;">
+        <div class="glass-card" style="text-align: center; max-width: 350px;">
+            <h2 style="margin-bottom: 10px; color: var(--text-accent);">Hafıza Oyunu</h2>
+            <p style="font-size: 0.9rem; margin-bottom: 15px;" id="minigame-msg">Renkleri ezberle!</p>
+            
+            <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px; color: var(--text-gold);" id="minigame-timer">--</div>
+            
+            <!-- Gösterim Alanı (Ortadaki renk kutusu) -->
+            <div id="minigame-display" style="width: 80px; height: 80px; border-radius: 10px; margin: 0 auto 20px auto; background-color: #333; transition: background-color 0.2s; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);"></div>
+
+            <!-- Tıklanacak Renk Butonları -->
+            <div id="minigame-buttons" style="display: flex; gap: 15px; justify-content: center; pointer-events: none; opacity: 0.5; padding-top: 10px; margin-bottom: 5px;">
+                <button class="color-btn color-btn-3d" style="--btn-color: #ff3b30; --btn-dark: #a8201a;"></button>
+                <button class="color-btn color-btn-3d" style="--btn-color: #0a84ff; --btn-dark: #054e99;"></button>
+                <button class="color-btn color-btn-3d" style="--btn-color: #34c759; --btn-dark: #1c6b2e;"></button>
+                <button class="color-btn color-btn-3d" style="--btn-color: #ffcc00; --btn-dark: #a38200;"></button>
+            </div>
+            
+            <div id="minigame-progress" style="margin-top: 15px; font-weight: bold; font-size: 1.2rem; color: #fff;">0 / 4</div>
+        </div>
+    </div>
+
+    <!-- REFLEX MODAL -->
+    <div id="reflex-modal" class="modal-overlay" style="display: none; z-index: 10001;">
+        <div class="glass-card" style="text-align: center; max-width: 350px;">
+            <h2 style="margin-bottom: 10px; color: var(--text-accent);">Refleks Oyunu</h2>
+            <p style="font-size: 0.9rem; margin-bottom: 15px;" id="reflex-msg">Yeşil olduğunda tıkla!</p>
+            
+            <button id="btn-reflex" class="btn-reflex-game">BASMA</button>
+        </div>
+    </div>
+    <!-- MATH MODAL -->
+    <div id="math-modal" class="modal-overlay" style="display: none; z-index: 10001;">
+        <div class="glass-card" style="text-align: center; max-width: 350px;">
+            <h2 style="margin-bottom: 10px; color: var(--text-accent);">Matematik Testi</h2>
+            <p style="font-size: 0.9rem; margin-bottom: 20px;">Süreli İşlem: <span id="math-timer" style="color: var(--text-gold); font-weight: bold;">3.0s</span></p>
+            
+            <div id="math-question" style="font-size: 2.5rem; font-weight: 900; margin-bottom: 25px; letter-spacing: 2px;">12 + 7 = ?</div>
+
+            <div id="math-options" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <!-- Options generated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL LEADERBOARD MODAL -->
+    <div id="global-lb-modal" class="modal-overlay" style="display: none; z-index: 10001;">
+        <div class="profile-card glass-card" style="max-width: 600px; padding: 2rem;">
+            <button id="close-global-lb" class="btn-close-modal">&times;</button>
+            <div class="profile-header" style="margin-bottom: 1.5rem;">
+                <h2 style="color: var(--text-gold); font-size: 1.8rem; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);">🏆 LİDERLİK TABLOSU</h2>
+                <p id="global-lb-title" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">Aktif Alan</p>
+            </div>
+
+            <div class="lb-nav-tabs" style="display: flex; gap: 5px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
+                <button class="btn btn-sm btn-outline lb-tab-btn active" data-type="areaAllTime">Alan (Genel)</button>
+                <button class="btn btn-sm btn-outline lb-tab-btn" data-type="areaMonthly">Alan (Ay)</button>
+                <button class="btn btn-sm btn-outline lb-tab-btn" data-type="killsAllTime">Leş (Genel)</button>
+                <button class="btn btn-sm btn-outline lb-tab-btn" data-type="killsMonthly">Leş (Ay)</button>
+            </div>
+
+            <div class="lb-list" id="global-lb-list" style="max-height: 400px; overflow-y: auto; padding-right: 5px; text-align: left;">
+                <!-- Items populated via JS -->
+            </div>
+        </div>
+    </div>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Turf.js for geometry operations -->
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
