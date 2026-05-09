@@ -8,6 +8,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// Admin yetkili e-posta adresleri
+const ADMIN_EMAILS = ['o@gmail.com'];
+
 // Serve static files from 'public' directory
 app.use(express.static('public'));
 app.use(express.json());
@@ -16,34 +19,29 @@ app.use(express.json());
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const MAP_FILE = path.join(__dirname, 'data', 'map.json');
 const CHAT_LOG_FILE = path.join(__dirname, 'data', 'chat_logs.txt');
+const BANS_FILE = path.join(__dirname, 'data', 'bans.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
     fs.mkdirSync(path.join(__dirname, 'data'));
 }
 
+// Ensure files exist
+if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify({}));
+if (!fs.existsSync(MAP_FILE)) fs.writeFileSync(MAP_FILE, JSON.stringify({}));
+if (!fs.existsSync(BANS_FILE)) fs.writeFileSync(BANS_FILE, JSON.stringify([]));
+
 // Helper functions for persistence
 function loadData() {
     let users = {};
     let mapState = {};
+    let bannedEmails = [];
 
-    if (fs.existsSync(USERS_FILE)) {
-        try {
-            users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-        } catch (e) {
-            console.error("Users file corrupted, starting fresh.");
-        }
-    }
+    try { users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch (e) { console.error("Users file corrupted."); }
+    try { mapState = JSON.parse(fs.readFileSync(MAP_FILE, 'utf8')); } catch (e) { console.error("Map file corrupted."); }
+    try { bannedEmails = JSON.parse(fs.readFileSync(BANS_FILE, 'utf8')); } catch (e) { console.error("Bans file corrupted."); }
 
-    if (fs.existsSync(MAP_FILE)) {
-        try {
-            mapState = JSON.parse(fs.readFileSync(MAP_FILE, 'utf8'));
-        } catch (e) {
-            console.error("Map file corrupted, starting fresh.");
-        }
-    }
-
-    return { users, mapState };
+    return { users, mapState, bannedEmails };
 }
 
 function saveUsers() {
@@ -54,8 +52,12 @@ function saveMap() {
     fs.writeFileSync(MAP_FILE, JSON.stringify(mapState, null, 2));
 }
 
+function saveBans() {
+    fs.writeFileSync(BANS_FILE, JSON.stringify(bannedEmails, null, 2));
+}
+
 function checkMonthlyReset(users) {
-    const currentMonth = new Date().toISOString().slice(0, 7); // e.g., "2026-05"
+    const currentMonth = new Date().toISOString().slice(0, 7); 
     let updated = false;
     for (const email in users) {
         if (!users[email].lastMonth) {
@@ -80,6 +82,7 @@ function checkMonthlyReset(users) {
 const initialData = loadData();
 let users = initialData.users;
 let mapState = initialData.mapState;
+let bannedEmails = initialData.bannedEmails;
 
 if (checkMonthlyReset(users)) {
     saveUsers();
@@ -111,17 +114,21 @@ io.on('connection', (socket) => {
     
     socket.emit('init_map', mapState);
 
-    // Player joins the map after auth
     socket.on('player_join', (data) => {
         const userEmail = data.email;
 
-        // Çoklu oturumu engelle: Hesap zaten aktifse, YENİ girmeye çalışanı engelle!
+        if (bannedEmails.includes(userEmail)) {
+            socket.emit('force_disconnect', { reason: 'Bu hesap sistemden banlanmıştır!' });
+            socket.disconnect(true);
+            return;
+        }
+
         for (const sid in players) {
             if (players[sid].email === userEmail && sid !== socket.id) {
                 console.log(`[!] ${userEmail} hesabına 2. cihazdan giriş denemesi engellendi: ${socket.id}`);
                 socket.emit('force_disconnect', { reason: 'Bu hesaba şu anda başka bir cihazdan oynanıyor! Lütfen diğer cihazı kapatın.' });
                 socket.disconnect(true);
-                return; // Kayıt işlemini durdur, yeni oyuncuyu oyuna alma
+                return;
             }
         }
 
@@ -137,13 +144,10 @@ io.on('connection', (socket) => {
             castle: savedUser ? savedUser.castle : null 
         };
 
-        console.log(`[JOIN] ${players[socket.id].username} (${userEmail}) oyuna katıldı. Puan: ${players[socket.id].score}, Para: ${players[socket.id].coins}`);
-        
-        // Oyuncuya kendi güncel verilerini geri gönder (Senkronizasyon için)
+        console.log(`[JOIN] ${players[socket.id].username} (${userEmail}) oyuna katıldı.`);
         socket.emit('auth_success', { user: savedUser || players[socket.id] });
     });
 
-    // Player updates info (name, color)
     socket.on('player_update', (data) => {
         if (players[socket.id]) {
             if (data.username) players[socket.id].username = data.username;
@@ -152,34 +156,27 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Player conquers a cell
     socket.on('conquer_cell', (data) => {
         const cellId = data.id;
         const isCastle = data.isCastle || false;
 
-        // Check if this cell is someone else's castle
         for (const cid in mapState) {
             if (mapState[cid].isCastle && cid === cellId) {
                 const ownerEmail = mapState[cid].owner;
                 const playerEmail = players[socket.id]?.email;
 
                 if (ownerEmail && ownerEmail !== playerEmail) {
-                    console.log(`[!] ${players[socket.id]?.username} captured ${ownerEmail}'s castle!`);
-                    
-                    // Increment kills for the attacker
                     if (playerEmail && users[playerEmail]) {
                         users[playerEmail].totalKills = (users[playerEmail].totalKills || 0) + 1;
                         users[playerEmail].monthlyKills = (users[playerEmail].monthlyKills || 0) + 1;
                     }
 
-                    // Clear defeated player's state in users object
                     if (users[ownerEmail]) {
                         users[ownerEmail].score = 0;
                         users[ownerEmail].castle = null;
                         saveUsers();
                     }
 
-                    // Remove their cells from map
                     for (const mid in mapState) {
                         if (mapState[mid].owner === ownerEmail) {
                             delete mapState[mid];
@@ -217,7 +214,7 @@ io.on('connection', (socket) => {
             user.monthlyConquered = (user.monthlyConquered || 0) + 1;
             saveUsers();
         }
-        saveMap(); // Save map on every conquest
+        saveMap();
 
         socket.broadcast.emit('cell_conquered', {
             id: cellId,
@@ -229,7 +226,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Para güncelleme (Harcanan parayı kaydet)
     socket.on('update_coins', (data) => {
         const player = players[socket.id];
         if (player && player.email && users[player.email]) {
@@ -238,15 +234,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Renk ve Satın Alınan Renkleri Güncelleme
     socket.on('update_colors', (data) => {
         const player = players[socket.id];
         if (player && player.email && users[player.email]) {
             if (data.color) {
                 users[player.email].color = data.color;
-                player.color = data.color; // Aktif session rengini de güncelle
-
-                // Haritadaki oyuncuya ait bölgelerin rengini güncelle
+                player.color = data.color;
                 let changed = false;
                 for (const cellId in mapState) {
                     if (mapState[cellId].owner === player.email) {
@@ -254,28 +247,19 @@ io.on('connection', (socket) => {
                         changed = true;
                     }
                 }
-
-                if (changed) {
-                    saveMap();
-                    io.emit('init_map', mapState); // Tüm istemcilere güncel haritayı gönder
-                }
+                if (changed) { saveMap(); io.emit('init_map', mapState); }
             }
-            if (data.ownedColors) {
-                users[player.email].ownedColors = data.ownedColors;
-            }
+            if (data.ownedColors) users[player.email].ownedColors = data.ownedColors;
             saveUsers();
         }
     });
 
-    // Emoji ve Satın Alınan Emojileri Güncelleme
     socket.on('update_emojis', (data) => {
         const player = players[socket.id];
         if (player && player.email && users[player.email]) {
             if (data.emoji) {
                 users[player.email].emoji = data.emoji;
                 player.emoji = data.emoji;
-
-                // Haritadaki oyuncuya ait bölgelerin emojisini güncelle
                 let changed = false;
                 for (const cellId in mapState) {
                     if (mapState[cellId].owner === player.email) {
@@ -283,27 +267,19 @@ io.on('connection', (socket) => {
                         changed = true;
                     }
                 }
-
-                if (changed) {
-                    saveMap();
-                    io.emit('init_map', mapState);
-                }
+                if (changed) { saveMap(); io.emit('init_map', mapState); }
             }
-            if (data.ownedEmojis) {
-                users[player.email].ownedEmojis = data.ownedEmojis;
-            }
+            if (data.ownedEmojis) users[player.email].ownedEmojis = data.ownedEmojis;
             saveUsers();
         }
     });
 
-    // Sohbet Mesajı
     socket.on('chat_message', (data) => {
         const player = players[socket.id];
         let username = player ? player.username : 'Oyuncu';
         let color = player ? player.color : '#fff';
         let emoji = player ? player.emoji : '🏰';
 
-        // Eğer oyuncu verisi varsa, en güncel bilgileri users objesinden alalım
         if (player && player.email && users[player.email]) {
             const userData = users[player.email];
             username = userData.username || username;
@@ -312,48 +288,84 @@ io.on('connection', (socket) => {
         }
 
         if (data.message) {
-            const cleanMessage = data.message.substring(0, 100); // 100 karakter sınırı
+            const cleanMessage = data.message.substring(0, 100);
             
-            // Sohbet geçmişini dosyaya kaydet
-            const timestamp = new Date().toLocaleString('tr-TR');
-            const logEntry = `[${timestamp}] ${username} (${emoji}): ${cleanMessage}\n`;
-            
-            try {
-                fs.appendFileSync(CHAT_LOG_FILE, logEntry, 'utf8');
-            } catch (err) {
-                console.error("Sohbet günlüğü kaydedilemedi:", err);
+            if (cleanMessage.startsWith('/') && player && ADMIN_EMAILS.includes(player.email)) {
+                const args = cleanMessage.substring(1).split(' ');
+                const command = args[0].toLowerCase();
+
+                if (command === 'para') {
+                    const targetName = args[1];
+                    const amount = parseInt(args[2]);
+                    if (targetName && !isNaN(amount)) {
+                        for (const email in users) {
+                            if (users[email].username === targetName) {
+                                users[email].coins = (users[email].coins || 0) + amount;
+                                saveUsers();
+                                for (const sid in players) {
+                                    if (players[sid].email === email) {
+                                        players[sid].coins = users[email].coins;
+                                        io.to(sid).emit('auth_success', { user: players[sid] });
+                                    }
+                                }
+                                socket.emit('chat_message', { username: 'SİSTEM', color: '#ffcc00', emoji: '⚙️', message: `${targetName} adlı oyuncuya ${amount} altın eklendi.` });
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                if (command === 'kick') {
+                    const targetName = args[1];
+                    for (const sid in players) {
+                        if (players[sid].username === targetName) {
+                            io.to(sid).emit('force_disconnect', { reason: 'Admin tarafından sunucudan atıldınız.' });
+                            return;
+                        }
+                    }
+                }
+
+                if (command === 'ban') {
+                    const targetName = args[1];
+                    for (const email in users) {
+                        if (users[email].username === targetName) {
+                            if (!bannedEmails.includes(email)) {
+                                bannedEmails.push(email);
+                                saveBans();
+                            }
+                            for (const sid in players) {
+                                if (players[sid].email === email) {
+                                    io.to(sid).emit('force_disconnect', { reason: 'Admin tarafından banlandınız.' });
+                                }
+                            }
+                            socket.emit('chat_message', { username: 'SİSTEM', color: '#ffcc00', emoji: '⚙️', message: `${targetName} banlandı.` });
+                            return;
+                        }
+                    }
+                }
             }
 
-            io.emit('chat_message', {
-                username: username,
-                color: color,
-                emoji: emoji,
-                message: cleanMessage
-            });
+            const timestamp = new Date().toLocaleString('tr-TR');
+            fs.appendFileSync(CHAT_LOG_FILE, `[${timestamp}] ${username} (${emoji}): ${cleanMessage}\n`, 'utf8');
+
+            io.emit('chat_message', { username: username, color: color, emoji: emoji, message: cleanMessage });
         }
     });
 
     socket.on('disconnect', () => {
-        console.log(`[-] Player disconnected: ${socket.id}`);
         delete players[socket.id];
     });
 });
 
-// --- AUTH API ---
-function generateCode() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-}
+function generateCode() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 
 app.post('/api/register', (req, res) => {
     const { email, password, username } = req.body;
     if (!email || !password || !username) return res.status(400).json({ error: 'Tüm alanlar gereklidir.' });
     if (users[email]) return res.status(400).json({ error: 'Bu e-posta zaten kayıtlı.' });
+    if (bannedEmails.includes(email)) return res.status(403).json({ error: 'Bu e-posta banlıdır.' });
 
     const code = generateCode();
-    pendingUsers[email] = { 
-        username,
-        password, 
-        code, 
         expires: Date.now() + 10 * 60 * 1000 // 10 minutes
     };
 
