@@ -114,6 +114,17 @@ io.on('connection', (socket) => {
     // Player joins the map after auth
     socket.on('player_join', (data) => {
         const userEmail = data.email;
+
+        // Çoklu oturumu engelle: Hesap zaten aktifse, YENİ girmeye çalışanı engelle!
+        for (const sid in players) {
+            if (players[sid].email === userEmail && sid !== socket.id) {
+                console.log(`[!] ${userEmail} hesabına 2. cihazdan giriş denemesi engellendi: ${socket.id}`);
+                socket.emit('force_disconnect', { reason: 'Bu hesaba şu anda başka bir cihazdan oynanıyor! Lütfen diğer cihazı kapatın.' });
+                socket.disconnect(true);
+                return; // Kayıt işlemini durdur, yeni oyuncuyu oyuna alma
+            }
+        }
+
         const savedUser = users[userEmail];
 
         players[socket.id] = { 
