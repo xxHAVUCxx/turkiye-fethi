@@ -366,6 +366,10 @@ app.post('/api/register', (req, res) => {
     if (bannedEmails.includes(email)) return res.status(403).json({ error: 'Bu e-posta banlıdır.' });
 
     const code = generateCode();
+    pendingUsers[email] = { 
+        username,
+        password, 
+        code, 
         expires: Date.now() + 10 * 60 * 1000 // 10 minutes
     };
 
