@@ -488,6 +488,6 @@ setInterval(() => {
 }, 5000);
 
 const PORT = process.env.PORT || 3169;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Sunucu başlatıldı: http://localhost:${PORT}`);
 });
