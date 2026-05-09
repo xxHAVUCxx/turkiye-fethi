@@ -1,4 +1,35 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Custom Alert System ---
+    window.alert = function(message, type = 'error') {
+        let container = document.getElementById('game-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'game-toast-container';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = `game-toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    };
+
+    function printConsole(msg, type = 'error') {
+        const chatMessages = document.getElementById('chat-messages');
+        if (chatMessages) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-msg';
+            const color = type === 'error' ? '#ff3b30' : '#0a84ff';
+            msgDiv.innerHTML = `<span class="chat-msg-emoji">💻</span> <span class="chat-msg-user" style="color: ${color}">Sunucu:</span> <span class="chat-msg-text" style="color: ${color}; font-weight: bold;">${msg}</span>`;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
     // --- UI Elements ---
     const screens = {
         auth: document.getElementById('auth-screen'),
@@ -33,9 +64,240 @@ document.addEventListener('DOMContentLoaded', () => {
         coordDisplay: document.getElementById('coord-display')
     };
 
+    // --- Game Settings ---
+    const defaultSettings = {
+        masterSound: true,
+        music: true,
+        sfx: true,
+        vfx: true,
+        musicVolume: 1.0,
+        sfxVolume: 1.0
+    };
+
+    // Ayarları localStorage'dan yükle
+    const savedSettings = localStorage.getItem('turkiye_fethi_settings');
+    window.gameSettings = savedSettings ? { ...defaultSettings, ...JSON.parse(savedSettings) } : defaultSettings;
+
+    function saveSettings() {
+        localStorage.setItem('turkiye_fethi_settings', JSON.stringify(window.gameSettings));
+    }
+
+    function syncSettingsUI() {
+        const masterSoundToggle = document.getElementById('toggle-master-sound');
+        const musicToggle = document.getElementById('toggle-music');
+        const sfxToggle = document.getElementById('toggle-sfx');
+        const vfxToggle = document.getElementById('toggle-vfx');
+        const musicVolumeSlider = document.getElementById('volume-music');
+        const sfxVolumeSlider = document.getElementById('volume-sfx');
+
+        if (masterSoundToggle) masterSoundToggle.checked = window.gameSettings.masterSound;
+        if (musicToggle) musicToggle.checked = window.gameSettings.music;
+        if (sfxToggle) sfxToggle.checked = window.gameSettings.sfx;
+        if (vfxToggle) vfxToggle.checked = window.gameSettings.vfx;
+        if (musicVolumeSlider) musicVolumeSlider.value = window.gameSettings.musicVolume * 100;
+        if (sfxVolumeSlider) sfxVolumeSlider.value = window.gameSettings.sfxVolume * 100;
+    }
+
+    // İlk açılışta UI'ı güncelle
+    syncSettingsUI();
+
+    /* ==============================
+       Premium Sound Manager (Web Audio)
+       ============================== */
+    const SoundManager = (() => {
+        let audioCtx = null;
+        
+        const init = () => {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        };
+
+        const playSynthesizedSound = (params) => {
+            if (!window.gameSettings.masterSound || !window.gameSettings.sfx) return;
+            try {
+                init();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const { freq, type = 'sine', duration = 0.1, volume = 0.2, ramp = false, endFreq = 0 } = params;
+                
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.type = type;
+                oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                if (ramp && endFreq > 0) {
+                    oscillator.frequency.exponentialRampToValueAtTime(endFreq, audioCtx.currentTime + duration);
+                }
+
+                // ADSR-like Volume Envelope
+                const finalVolume = volume * window.gameSettings.sfxVolume;
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(finalVolume, audioCtx.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+                oscillator.connect(gainNode).connect(audioCtx.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn("Ses sentezlenemedi:", e);
+            }
+        };
+
+        let isBgmPlaying = false;
+        const startBGM = () => {
+            if (!window.gameSettings.masterSound || !window.gameSettings.music) return;
+            if (isBgmPlaying) return;
+            try {
+                init();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                isBgmPlaying = true;
+                let step = 0;
+                const bpm = 130;
+                const stepTime = (60 / bpm) / 2; // 8th notes
+                let nextNoteTime = audioCtx.currentTime + 0.1;
+
+                // Happy Arcade 4-Chord Arpeggio (C, C, F, G)
+                const melody = [
+                    261.63, 329.63, 392.00, 523.25, // C E G C
+                    523.25, 392.00, 329.63, 261.63, // C G E C
+                    349.23, 440.00, 523.25, 698.46, // F A C F
+                    392.00, 493.88, 587.33, 783.99  // G B D G
+                ];
+
+                // Bouncy Bass (C3, F3, G3)
+                const bass = [
+                    130.81, null, 130.81, null,
+                    130.81, null, 130.81, null,
+                    174.61, null, 174.61, null,
+                    196.00, null, 196.00, null
+                ];
+
+                const scheduleNote = () => {
+                    if (!isBgmPlaying || !window.gameSettings.masterSound || !window.gameSettings.music) {
+                        isBgmPlaying = false;
+                        return;
+                    }
+                    
+                    while (nextNoteTime < audioCtx.currentTime + 0.1) {
+                        // Melody
+                        if (melody[step]) {
+                            const osc = audioCtx.createOscillator();
+                            const gain = audioCtx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.value = melody[step];
+                            
+                            const maxGain = 0.04 * window.gameSettings.musicVolume;
+                            gain.gain.setValueAtTime(0, nextNoteTime);
+                            gain.gain.linearRampToValueAtTime(maxGain, nextNoteTime + 0.01);
+                            gain.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + stepTime - 0.01);
+                            
+                            osc.connect(gain).connect(audioCtx.destination);
+                            osc.start(nextNoteTime);
+                            osc.stop(nextNoteTime + stepTime);
+                        }
+
+                        // Bass
+                        if (bass[step]) {
+                            const oscB = audioCtx.createOscillator();
+                            const gainB = audioCtx.createGain();
+                            oscB.type = 'square';
+                            oscB.frequency.value = bass[step];
+                            
+                            const maxGainB = 0.02 * window.gameSettings.musicVolume;
+                            gainB.gain.setValueAtTime(0, nextNoteTime);
+                            gainB.gain.linearRampToValueAtTime(maxGainB, nextNoteTime + 0.01);
+                            gainB.gain.exponentialRampToValueAtTime(0.001, nextNoteTime + stepTime - 0.01);
+                            
+                            const filter = audioCtx.createBiquadFilter();
+                            filter.type = 'lowpass';
+                            filter.frequency.value = 350;
+                            
+                            oscB.connect(filter).connect(gainB).connect(audioCtx.destination);
+                            oscB.start(nextNoteTime);
+                            oscB.stop(nextNoteTime + stepTime);
+                        }
+                        
+                        step = (step + 1) % 16;
+                        nextNoteTime += stepTime;
+                    }
+                    setTimeout(scheduleNote, 25);
+                };
+                
+                scheduleNote();
+            } catch (e) {
+                console.warn("BGM başlatılamadı:", e);
+            }
+        };
+
+        return {
+            startBGM,
+            click: () => playSynthesizedSound({ freq: 600, type: 'triangle', duration: 0.08, volume: 0.15, ramp: true, endFreq: 400 }),
+            success: () => {
+                playSynthesizedSound({ freq: 523.25, type: 'sine', duration: 0.15, volume: 0.2 }); // C5
+                setTimeout(() => playSynthesizedSound({ freq: 659.25, type: 'sine', duration: 0.3, volume: 0.2 }), 100); // E5
+            },
+            fail: () => {
+                playSynthesizedSound({ freq: 220, type: 'sawtooth', duration: 0.2, volume: 0.1, ramp: true, endFreq: 110 });
+            },
+            energyLoss: () => {
+                playSynthesizedSound({ freq: 300, type: 'square', duration: 0.1, volume: 0.05 });
+                setTimeout(() => playSynthesizedSound({ freq: 200, type: 'square', duration: 0.2, volume: 0.05 }), 50);
+            },
+            conquest: () => {
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C-E-G-C Arpeggio
+                notes.forEach((f, i) => {
+                    setTimeout(() => playSynthesizedSound({ freq: f, type: 'sine', duration: 0.4, volume: 0.15 }), i * 100);
+                });
+            }
+        };
+    })();
+
+
+    console.log("Uygulama başlatıldı, butonlar bağlandı.");
+
+    /* ==============================
+       VFX Manager (Visual Feedback)
+       ============================== */
+    const VFXManager = (() => {
+        return {
+            shake: (element = document.body) => {
+                if (!window.gameSettings.vfx) return;
+                if (!element) return;
+                element.classList.remove('vfx-shake');
+                void element.offsetWidth; // Trigger reflow
+                element.classList.add('vfx-shake');
+                setTimeout(() => element.classList.remove('vfx-shake'), 400);
+            },
+            pulse: (element, color = 'rgba(255, 255, 255, 0.5)') => {
+                if (!window.gameSettings.vfx) return;
+                if (!element) return;
+                element.style.transition = 'box-shadow 0.2s ease-out, transform 0.1s ease-out';
+                element.style.boxShadow = `0 0 25px ${color}`;
+                element.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    element.style.boxShadow = '';
+                    element.style.transform = '';
+                }, 200);
+            },
+            flash: () => {
+                if (!window.gameSettings.vfx) return;
+                const flashDiv = document.createElement('div');
+                flashDiv.className = 'vfx-flash';
+                document.body.appendChild(flashDiv);
+                setTimeout(() => flashDiv.remove(), 700);
+            }
+        };
+    })();
+
+
     // --- Minigame System (Hafıza) ---
     const minigame = {
         modal: document.getElementById('minigame-modal'),
+
         timerEl: document.getElementById('minigame-timer'),
         msgEl: document.getElementById('minigame-msg'),
         displayEl: document.getElementById('minigame-display'),
@@ -60,6 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedColor = minigame.colors[index];
             minigame.playerSequence.push(selectedColor);
             minigame.progressEl.textContent = `${minigame.playerSequence.length} / 4`;
+            
+            SoundManager.click();
+            VFXManager.pulse(btn, selectedColor);
             
             // Eğer yanlış renk seçildiyse oyunu anında kaybet
             const currentStep = minigame.playerSequence.length - 1;
@@ -107,6 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             minigame.displayEl.style.backgroundColor = minigame.sequence[showIndex];
+            SoundManager.click(); // Her renk gösterildiğinde kısa bir tık
             
             setTimeout(() => {
                 minigame.displayEl.style.backgroundColor = '#333';
@@ -309,6 +575,9 @@ document.addEventListener('DOMContentLoaded', () => {
             gameState.energy--;
             if (uiElements.energy) uiElements.energy.textContent = gameState.energy;
             
+            SoundManager.energyLoss();
+            VFXManager.shake(document.getElementById('game-screen'));
+
             // Eğer istersen printConsole burada çağırılabilir:
             if (typeof printConsole === 'function') {
                 printConsole("Başarısız! Enerjin boşa gitti.", "error");
@@ -382,6 +651,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentStoreTab = 'colors';
 
+    // Rengin tam zıt (tamamlayıcı) rengini hesaplar
+    function getComplementaryColor(hex) {
+        if (hex.indexOf('#') === 0) hex = hex.slice(1);
+        if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        
+        // RGB'yi tersine çevir
+        const rInv = (255 - r).toString(16).padStart(2, '0');
+        const gInv = (255 - g).toString(16).padStart(2, '0');
+        const bInv = (255 - b).toString(16).padStart(2, '0');
+        
+        return `#${rInv}${gInv}${bInv}`;
+    }
+
+    // Rengin üzerine en iyi gidecek yazı rengini (Siyah/Beyaz) hesaplar
+    function getContrastText(hex) {
+        if (hex.indexOf('#') === 0) hex = hex.slice(1);
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness > 128 ? '#000000' : '#ffffff';
+    }
+
     function renderStore() {
         const storeContainer = document.getElementById('store-grid-container');
         if (!storeContainer) return;
@@ -408,7 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 div.innerHTML = `
                     <div class="color-preview" style="width: 40px; height: 40px; border-radius: 50%; background-color: ${item.color}; box-shadow: 0 0 15px ${item.color}80; margin-bottom: 5px;"></div>
-                    <div class="item-name">${item.name}</div>
+                    <div class="item-name" style="color: var(--primary-anti)">${item.name}</div>
                     <div class="item-price" style="color: var(--text-gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 5px;">${isOwned ? 'Sahipsin' : priceText}</div>
                     ${actionBtnHTML}
                 `;
@@ -435,7 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 div.innerHTML = `
                     <div class="emoji-preview" style="font-size: 2rem; margin-bottom: 5px;">${item.emoji}</div>
-                    <div class="item-name">${item.name}</div>
+                    <div class="item-name" style="color: var(--primary-anti)">${item.name}</div>
                     <div class="item-price" style="color: var(--text-gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 5px;">${isOwned ? 'Sahipsin' : priceText}</div>
                     ${actionBtnHTML}
                 `;
@@ -557,10 +853,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Login Submission
     buttons.submitLogin.addEventListener('click', async () => {
+        console.log("Giriş yap butonuna tıklandı.");
+        SoundManager.click();
+        VFXManager.pulse(buttons.submitLogin);
         const email = document.getElementById('login-email').value;
+
         const password = document.getElementById('login-password').value;
 
-        if (!email || !password) return alert('Lütfen tüm alanları doldurun.');
+        if (!email || !password) { 
+            SoundManager.fail(); 
+            VFXManager.shake(document.querySelector('.auth-card'));
+            return; 
+        }
 
         try {
             const res = await fetch('/api/login', {
@@ -570,25 +874,30 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (res.ok) {
+                VFXManager.flash();
                 handleAuthSuccess(data.user);
             } else {
-                alert(data.error || 'Giriş başarısız.');
+                VFXManager.shake(document.querySelector('.auth-card'));
+                SoundManager.fail();
             }
         } catch (err) {
             console.error(err);
-            alert('Sunucu hatası.');
+            VFXManager.shake(document.querySelector('.auth-card'));
+            SoundManager.fail();
         }
     });
 
     // Register Submission
     buttons.submitRegister.addEventListener('click', async () => {
+        SoundManager.click();
+        VFXManager.pulse(buttons.submitRegister);
         const username = document.getElementById('register-username').value.trim();
         const email = document.getElementById('register-email').value.trim();
         const password = document.getElementById('register-password').value;
         const confirmPassword = document.getElementById('register-confirm-password').value;
 
-        if (!username || !email || !password || !confirmPassword) return alert('Lütfen tüm alanları doldurun.');
-        if (password !== confirmPassword) return alert('Şifreler eşleşmiyor!');
+        if (!username || !email || !password || !confirmPassword) { SoundManager.fail(); return alert('Lütfen tüm alanları doldurun.'); }
+        if (password !== confirmPassword) { SoundManager.fail(); return alert('Şifreler eşleşmiyor!'); }
 
         try {
             const res = await fetch('/api/register', {
@@ -598,9 +907,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (res.ok) {
+                SoundManager.success(); 
+                VFXManager.flash();
                 showAuthForm('verify');
             } else {
-                alert(data.error || 'Kayıt başarısız.');
+                VFXManager.shake(document.querySelector('.auth-card'));
+                SoundManager.fail(); alert(data.error || 'Kayıt başarısız.');
             }
         } catch (err) {
             console.error(err);
@@ -610,10 +922,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Verify Submission
     buttons.submitVerify.addEventListener('click', async () => {
+        SoundManager.click();
         const email = document.getElementById('register-email').value;
         const code = document.getElementById('verify-code').value;
 
-        if (!code) return alert('Lütfen kodu girin.');
+        if (!code) { SoundManager.fail(); return alert('Lütfen kodu girin.'); }
 
         try {
             const res = await fetch('/api/verify', {
@@ -625,7 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 handleAuthSuccess(data.user);
             } else {
-                alert(data.error || 'Doğrulama başarısız.');
+                SoundManager.fail(); alert(data.error || 'Doğrulama başarısız.');
             }
         } catch (err) {
             console.error(err);
@@ -686,11 +999,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateLobbyTheme();
         switchScreen('lobby');
+        SoundManager.startBGM(); // Oyuna girince müziği başlat
+    }
+
+    function getContrastYIQ(hexcolor){
+        if(!hexcolor) return 'white';
+        hexcolor = hexcolor.replace("#", "");
+        if(hexcolor.length === 3) {
+            hexcolor = hexcolor.split('').map(c => c+c).join('');
+        }
+        var r = parseInt(hexcolor.substr(0,2),16);
+        var g = parseInt(hexcolor.substr(2,2),16);
+        var b = parseInt(hexcolor.substr(4,2),16);
+        var yiq = ((r*299)+(g*587)+(b*114))/1000;
+        return (yiq >= 128) ? '#000000' : '#ffffff';
+    }
+
+    function getComplementaryColor(hex) {
+        hex = hex.replace('#', '');
+        let r = parseInt(hex.substr(0, 2), 16);
+        let g = parseInt(hex.substr(2, 2), 16);
+        let b = parseInt(hex.substr(4, 2), 16);
+        r = (255 - r).toString(16).padStart(2, '0');
+        g = (255 - g).toString(16).padStart(2, '0');
+        b = (255 - b).toString(16).padStart(2, '0');
+        return `#${r}${g}${b}`;
+    }
+
+    function getContrastText(hex) {
+        return getContrastYIQ(hex);
     }
 
     function updateLobbyTheme() {
         const color = gameState.playerColor || '#ff3b30';
+        const antiColor = getComplementaryColor(color);
+        const contrastText = getContrastText(color);
+
         document.documentElement.style.setProperty('--primary-red', color);
+        document.documentElement.style.setProperty('--primary-anti', antiColor);
+        document.documentElement.style.setProperty('--primary-contrast', contrastText);
         
         // Glow blobları da güncelle
         document.querySelectorAll('.glow-blob').forEach(blob => {
@@ -701,6 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const megaBtn = document.getElementById('btn-start');
         if (megaBtn) {
             megaBtn.style.boxShadow = `0 0 60px ${color}80, inset 0 0 40px rgba(0, 0, 0, 0.4)`;
+            megaBtn.style.color = contrastText; // Buton içi yazı rengi okunabilir olsun
         }
     }
 
@@ -716,6 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Game Navigation Logic ---
     buttons.start.addEventListener('click', () => {
+        SoundManager.click();
         switchScreen('game');
         initMap();
         
@@ -723,7 +1072,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             if (!gameState.castleCellId) {
                 console.log("Yeni oyuncu spawn süreci başlıyor...");
+        SoundManager.conquest();
                 spawnPlayer();
+        SoundManager.conquest();
             } else {
                 console.log("Eski konumdan devam ediliyor...");
                 const coords = gameState.castleCellId.split('_');
@@ -894,6 +1245,62 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === uiElements.profileModal) {
             uiElements.profileModal.style.display = 'none';
         }
+        if (e.target === document.getElementById('settings-modal')) {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+    });
+
+    // --- Settings Logic ---
+    const btnSettings = document.getElementById('btn-settings');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettings = document.getElementById('close-settings');
+
+    if (btnSettings) {
+        btnSettings.addEventListener('click', () => {
+            settingsModal.style.display = 'flex';
+        });
+    }
+
+    if (closeSettings) {
+        closeSettings.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
+    }
+
+    document.getElementById('toggle-master-sound')?.addEventListener('change', (e) => {
+        window.gameSettings.masterSound = e.target.checked;
+        saveSettings();
+        if (window.gameSettings.masterSound && window.gameSettings.music && screens.game.classList.contains('active')) {
+            SoundManager.startBGM();
+        }
+    });
+
+    document.getElementById('toggle-music')?.addEventListener('change', (e) => {
+        window.gameSettings.music = e.target.checked;
+        saveSettings();
+        if (window.gameSettings.masterSound && window.gameSettings.music && screens.game.classList.contains('active')) {
+            SoundManager.startBGM();
+        }
+    });
+
+    document.getElementById('toggle-sfx')?.addEventListener('change', (e) => {
+        window.gameSettings.sfx = e.target.checked;
+        saveSettings();
+    });
+
+    document.getElementById('volume-sfx')?.addEventListener('input', (e) => {
+        window.gameSettings.sfxVolume = parseInt(e.target.value) / 100;
+        saveSettings();
+    });
+
+    document.getElementById('toggle-vfx')?.addEventListener('change', (e) => {
+        window.gameSettings.vfx = e.target.checked;
+        saveSettings();
+    });
+
+    document.getElementById('volume-music')?.addEventListener('input', (e) => {
+        window.gameSettings.musicVolume = parseInt(e.target.value) / 100;
+        saveSettings();
     });
 
     function updateProfileStats() {
@@ -1102,7 +1509,10 @@ document.addEventListener('DOMContentLoaded', () => {
         cellId = `${randomLat.toFixed(5)}_${randomLng.toFixed(5)}`;
 
         gameState.castleCellId = cellId;
-        map.setView([randomLat, randomLng], 18);
+        map.flyTo([randomLat, randomLng], 18, {
+            duration: 2.0,
+            easeLinearity: 0.25
+        });
 
         drawConqueredCell(randomLat, randomLng, cellId, gameState.playerColor, true, gameState.email, gameState.username);
         gameState.score = 5;
@@ -1154,8 +1564,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Haritaya tıklama (Fetih işlemi)
         map.on('click', (e) => {
             console.log("Haritaya tıklandı:", e.latlng);
+            SoundManager.click();
             
             if (map.getZoom() < 16) {
+                VFXManager.shake(document.getElementById('map-container'), 3);
                 alert("Parçalar çok küçük! Fethetmek için haritaya daha fazla yaklaşmalısın.");
                 return; 
             }
@@ -1229,6 +1641,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.energy > 0) {
             gameState.energy--;
             uiElements.energy.textContent = gameState.energy;
+
+            SoundManager.success();
+            VFXManager.flash();
 
             drawConqueredCell(lat, lng, cellId, gameState.playerColor, gameState.playerEmoji, false, gameState.email, gameState.username);
             

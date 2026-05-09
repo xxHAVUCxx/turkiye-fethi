@@ -4,9 +4,9 @@
     "password": "123",
     "username": "OWWYEAAH",
     "id": "E4M1PJ",
-    "score": 20,
-    "coins": 1250,
-    "color": "#ff3b30",
+    "score": 125,
+    "coins": 1271,
+    "color": "#ffffff",
     "ownedColors": [
       "#ff3b30",
       "#0a84ff",
@@ -19,8 +19,8 @@
     ],
     "castle": "37.87828_33.07564",
     "lastMonth": "2026-05",
-    "totalConquered": 0,
-    "monthlyConquered": 0,
+    "totalConquered": 21,
+    "monthlyConquered": 21,
     "totalKills": 0,
     "monthlyKills": 0
   },
@@ -29,9 +29,9 @@
     "password": "123",
     "username": "xxHAVUCxx",
     "id": "76JULA",
-    "score": 1120,
-    "coins": 58,
-    "color": "#ffffff",
+    "score": 1565,
+    "coins": 4802,
+    "color": "#fcee0a",
     "ownedColors": [
       "#ff3b30",
       "#0a84ff",
@@ -45,17 +45,30 @@
       "#b9f2ff",
       "#ccff00",
       "#0c0c0c",
-      "#8a2be2"
+      "#8a2be2",
+      "#ffd700",
+      "#e6ffff",
+      "#39ff14",
+      "#7fff00",
+      "#00ffff",
+      "#696969",
+      "#f8f8ff",
+      "#8b0000",
+      "#ffcba4",
+      "#bfff00",
+      "#fcee0a",
+      "#ff0038"
     ],
     "castle": "41.24132_31.78542",
     "ownedEmojis": [
       "🏰",
-      "🚩"
+      "🚩",
+      "🦅"
     ],
-    "emoji": "🚩",
+    "emoji": "🦅",
     "lastMonth": "2026-05",
-    "totalConquered": 111,
-    "monthlyConquered": 111,
+    "totalConquered": 200,
+    "monthlyConquered": 200,
     "totalKills": 0,
     "monthlyKills": 0
   }

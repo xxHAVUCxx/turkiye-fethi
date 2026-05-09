@@ -15,6 +15,7 @@ app.use(express.json());
 // Paths for persistence
 const USERS_FILE = path.join(__dirname, 'data', 'users.json');
 const MAP_FILE = path.join(__dirname, 'data', 'map.json');
+const CHAT_LOG_FILE = path.join(__dirname, 'data', 'chat_logs.txt');
 
 // Ensure data directory exists
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
@@ -301,6 +302,17 @@ io.on('connection', (socket) => {
 
         if (data.message) {
             const cleanMessage = data.message.substring(0, 100); // 100 karakter sınırı
+            
+            // Sohbet geçmişini dosyaya kaydet
+            const timestamp = new Date().toLocaleString('tr-TR');
+            const logEntry = `[${timestamp}] ${username} (${emoji}): ${cleanMessage}\n`;
+            
+            try {
+                fs.appendFileSync(CHAT_LOG_FILE, logEntry, 'utf8');
+            } catch (err) {
+                console.error("Sohbet günlüğü kaydedilemedi:", err);
+            }
+
             io.emit('chat_message', {
                 username: username,
                 color: color,
@@ -384,6 +396,12 @@ app.post('/api/login', (req, res) => {
 
     if (!user || user.password !== password) {
         return res.status(400).json({ error: 'Geçersiz e-posta veya şifre.' });
+    }
+
+    // Check if user is already logged in via active sockets
+    const isAlreadyLoggedIn = Object.values(players).some(p => p.email === email);
+    if (isAlreadyLoggedIn) {
+        return res.status(403).json({ error: 'Bu hesap şu anda başka bir cihazda veya sekmede aktif.' });
     }
 
     res.json({ message: 'Giriş başarılı!', user: user });

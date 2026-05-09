@@ -97,6 +97,7 @@
                             <span id="player-username">...</span>
                             <button id="btn-profile" class="btn-icon-sm" title="Profil">👤</button>
                             <button id="btn-global-lb" class="btn-icon-sm" title="Tüm Zamanlar">🏆</button>
+                            <button id="btn-settings" class="btn-icon-sm" title="Ayarlar">⚙️</button>
                         </div>
                         <div class="player-level">Seviye 1</div>
                     </div>
@@ -319,6 +320,77 @@
 
             <div class="lb-list" id="global-lb-list" style="max-height: 400px; overflow-y: auto; padding-right: 5px; text-align: left;">
                 <!-- Items populated via JS -->
+            </div>
+        </div>
+    </div>
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content glass-card" style="max-width: 400px; padding: 30px;">
+            <button id="close-settings" class="btn-icon-sm" style="position: absolute; top: 15px; right: 15px;">❌</button>
+            <div style="text-align: center; margin-bottom: 25px;">
+                <h2 style="color: var(--text-main); font-size: 1.8rem; text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);">⚙️ AYARLAR</h2>
+            </div>
+
+            <div class="settings-list" style="display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                
+                <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div>
+                        <div style="font-weight: bold; font-size: 1.1rem;">Ana Ses</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Tüm oyun seslerini kapatır</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-master-sound" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="setting-item" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 1.1rem;">Müzik</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Arka plan müziği</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-music" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">🔈</span>
+                        <input type="range" id="volume-music" min="0" max="100" value="100" style="flex-grow: 1;" class="volume-slider">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">🔊</span>
+                    </div>
+                </div>
+
+                <div class="setting-item" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: bold; font-size: 1.1rem;">Efektler</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Tıklama ve fetih sesleri</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-sfx" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">🔈</span>
+                        <input type="range" id="volume-sfx" min="0" max="100" value="100" style="flex-grow: 1;" class="volume-slider">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">🔊</span>
+                    </div>
+                </div>
+
+                <div class="setting-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <div>
+                        <div style="font-weight: bold; font-size: 1.1rem;">Görsel Efektler</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Ekran titremesi ve flaşlar</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-vfx" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
             </div>
         </div>
     </div>
