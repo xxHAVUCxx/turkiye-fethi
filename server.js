@@ -290,7 +290,7 @@ io.on('connection', (socket) => {
         if (data.message) {
             const cleanMessage = data.message.substring(0, 100);
             
-            if (cleanMessage.startsWith('/') && player && ADMIN_EMAILS.includes(player.email)) {
+            if ((cleanMessage.startsWith('/') || cleanMessage.startsWith('!')) && player && ADMIN_EMAILS.includes(player.email)) {
                 const args = cleanMessage.substring(1).split(' ');
                 const command = args[0].toLowerCase();
 
@@ -309,6 +309,30 @@ io.on('connection', (socket) => {
                                     }
                                 }
                                 socket.emit('chat_message', { username: 'SİSTEM', color: '#ffcc00', emoji: '⚙️', message: `${targetName} adlı oyuncuya ${amount} altın eklendi.` });
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                if (command === 'alan') {
+                    const targetName = args[1];
+                    const amount = parseInt(args[2]); // Kaç m2 eklenecek
+                    if (targetName && !isNaN(amount)) {
+                        for (const email in users) {
+                            if (users[email].username === targetName) {
+                                users[email].score = (users[email].score || 0) + amount;
+                                users[email].totalConquered = (users[email].totalConquered || 0) + (amount / 5);
+                                users[email].monthlyConquered = (users[email].monthlyConquered || 0) + (amount / 5);
+                                saveUsers();
+                                
+                                for (const sid in players) {
+                                    if (players[sid].email === email) {
+                                        players[sid].score = users[email].score;
+                                        io.to(sid).emit('auth_success', { user: players[sid] });
+                                    }
+                                }
+                                socket.emit('chat_message', { username: 'SİSTEM', color: '#ffcc00', emoji: '⚙️', message: `${targetName} adlı oyuncuya ${amount} m² eklendi.` });
                                 return;
                             }
                         }
