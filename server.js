@@ -295,46 +295,21 @@ io.on('connection', (socket) => {
                 const command = args[0].toLowerCase();
 
                 if (command === 'para') {
-                    const targetName = args[1];
-                    const amount = parseInt(args[2]);
-                    if (targetName && !isNaN(amount)) {
-                        for (const email in users) {
-                            if (users[email].username === targetName) {
-                                users[email].coins = (users[email].coins || 0) + amount;
-                                saveUsers();
-                                for (const sid in players) {
-                                    if (players[sid].email === email) {
-                                        players[sid].coins = users[email].coins;
-                                        io.to(sid).emit('auth_success', { user: players[sid] });
-                                    }
+                    const targetName = args[1] || username; // İsim yazılmazsa kendine verir
+                    const amount = parseInt(args[2]) || 10000; // Miktar yazılmazsa 10k verir
+                    
+                    for (const email in users) {
+                        if (users[email].username === targetName) {
+                            users[email].coins = (users[email].coins || 0) + amount;
+                            saveUsers();
+                            for (const sid in players) {
+                                if (players[sid].email === email) {
+                                    players[sid].coins = users[email].coins;
+                                    io.to(sid).emit('auth_success', { user: players[sid] });
                                 }
-                                socket.emit('chat_message', { username: 'SİSTEM', color: '#ffcc00', emoji: '⚙️', message: `${targetName} adlı oyuncuya ${amount} altın eklendi.` });
-                                return;
                             }
-                        }
-                    }
-                }
-
-                if (command === 'alan') {
-                    const targetName = args[1];
-                    const amount = parseInt(args[2]); // Kaç m2 eklenecek
-                    if (targetName && !isNaN(amount)) {
-                        for (const email in users) {
-                            if (users[email].username === targetName) {
-                                users[email].score = (users[email].score || 0) + amount;
-                                users[email].totalConquered = (users[email].totalConquered || 0) + (amount / 5);
-                                users[email].monthlyConquered = (users[email].monthlyConquered || 0) + (amount / 5);
-                                saveUsers();
-                                
-                                for (const sid in players) {
-                                    if (players[sid].email === email) {
-                                        players[sid].score = users[email].score;
-                                        io.to(sid).emit('auth_success', { user: players[sid] });
-                                    }
-                                }
-                                socket.emit('chat_message', { username: 'SİSTEM', color: '#ffcc00', emoji: '⚙️', message: `${targetName} adlı oyuncuya ${amount} m² eklendi.` });
-                                return;
-                            }
+                            socket.emit('chat_message', { username: 'SİSTEM', color: '#ffcc00', emoji: '⚙️', message: `${targetName} adlı oyuncuya ${amount} altın eklendi.` });
+                            return;
                         }
                     }
                 }
